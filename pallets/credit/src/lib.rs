@@ -920,6 +920,7 @@ pub mod pallet {
         }
 
         /// get all the credit data passing the threshold for the eras between "from" and "to"
+        /// 带看一下credit_map
         fn get_credit_map(
             credit_history: Vec<(EraIndex, CreditData)>,
             from: EraIndex,
@@ -1023,6 +1024,7 @@ pub mod pallet {
         /// return (u64,bool):
         /// the first means the inteval of eras ;
         /// the second means if use era for check (tobe deprecated)
+        /// 检查两次变动间隔是否小于某个时间
         fn check_update_credit_interval(
             server_id: &T::AccountId,
             current_era: EraIndex,
@@ -1310,6 +1312,7 @@ pub mod pallet {
             CreditLevel::get_credit_level(credit_score)
         }
 
+        /// 带这过一下
         fn get_reward(
             account_id: &T::AccountId,
             from: EraIndex,

@@ -117,6 +117,7 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 >>::NegativeImbalance;
 
 /// Information regarding the active era (era in used in session).
+/// 有关活动时代的信息（在会话中使用的时代）。
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct ActiveEraInfo {
     /// Index of era.
@@ -131,6 +132,7 @@ pub struct ActiveEraInfo {
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// This points will be used to reward validators.
+/// 产块点发出点积分
 #[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct EraRewardPoints<AccountId: Ord> {
     /// Total number of points. Equals the sum of reward points for each validator.
@@ -178,6 +180,7 @@ impl<AccountId> Default for RewardDestination<AccountId> {
 }
 
 #[derive(Encode, Decode, Default, RuntimeDebug, TypeInfo, Clone, PartialEq)]
+// poc  pocr
 pub struct RewardData<Balance: HasCompact> {
     pub total_referee_reward: Balance,
     pub received_referee_reward: Balance,
@@ -187,6 +190,7 @@ pub struct RewardData<Balance: HasCompact> {
 }
 
 /// Preference of what happens regarding validation.
+/// ？
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct ValidatorPrefs {
     /// not used. It may be removed in future.
@@ -209,6 +213,7 @@ impl Default for ValidatorPrefs {
 
 /// Just a Balance/BlockNumber tuple to encode when a chunk of funds will be unlocked.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+/// 每era存多少数值
 pub struct UnlockChunk<Balance: HasCompact> {
     /// Amount of funds to be unlocked.
     #[codec(compact)]
@@ -225,14 +230,17 @@ pub struct StakingLedger<AccountId, Balance: HasCompact> {
     pub stash: AccountId,
     /// The total amount of the stash's balance that we are currently accounting for.
     /// It's just `active` plus all the `unlocking` balances.
+    /// 总共的
     #[codec(compact)]
     pub total: Balance,
     /// The total amount of the stash's balance that will be at stake in any forthcoming
     /// rounds.
+    /// 实际质押的钱
     #[codec(compact)]
     pub active: Balance,
     /// Any balance that is becoming free, which may eventually be transferred out
     /// of the stash (assuming it doesn't get slashed first).
+    /// 没被local
     pub unlocking: Vec<UnlockChunk<Balance>>,
     /// List of eras for which the stakers behind a validator have claimed rewards. Only updated
     /// for validators.
@@ -244,6 +252,7 @@ impl<AccountId, Balance: HasCompact + Copy + Saturating + AtLeast32BitUnsigned>
 {
     /// Remove entries from `unlocking` that are sufficiently old and reduce the
     /// total by the sum of their balances.
+    /// 到达某个era就删除列表
     fn consolidate_unlocked(self, current_era: EraIndex) -> Self {
         let mut total = self.total;
         let unlocking = self
@@ -304,6 +313,7 @@ where
     ///
     /// Slashes from `active` funds first, and then `unlocking`, starting with the
     /// chunks that are closest to unlocking.
+    /// 扣validate的钱
     fn slash(&mut self, mut value: Balance, minimum_balance: Balance) -> Balance {
         let pre_total = self.total;
         let total = &mut self.total;
@@ -348,6 +358,7 @@ where
 
 /// A snapshot of the stake backing a single validator in the system.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+///？
 pub struct Exposure<AccountId, Balance: HasCompact> {
     /// The total balance backing this validator.
     #[codec(compact)]
@@ -371,6 +382,7 @@ impl<AccountId, Balance: Default + HasCompact> Default for Exposure<AccountId, B
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
+/// 允许别人投诉
 #[derive(Encode, Decode, Default, RuntimeDebug, TypeInfo)]
 pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
     /// The stash ID of the offending validator.
@@ -522,6 +534,7 @@ impl<AccountId: Decode> Default for DelegatorData<AccountId> {
 }
 
 #[derive(Decode, Encode, TypeInfo)]
+/// validator 数据
 pub struct ValidatorData<AccountId: Ord> {
     pub delegators: BTreeSet<AccountId>,
     pub elected_era: EraIndex,
@@ -856,10 +869,6 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// The earliest era for which we have a pending, unapplied slash.
-    #[pallet::storage]
-    pub(crate) type EarliestUnappliedSlash<T> = StorageValue<_, EraIndex>;
-
     /// Flag to control the execution of the offchain election. When `Open(_)`, we accept
     /// solutions to be submitted.
     #[pallet::storage]
@@ -1049,6 +1058,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::weight(T::WeightInfo::staking_delegate())]
+        /// 带着看这个函数?
         pub fn staking_delegate(
             origin: OriginFor<T>,
             nonce: u64,
@@ -1102,6 +1112,7 @@ pub mod pallet {
         /// - Read: Bonded, Ledger, [Origin Account], Current Era, History Depth, Locks
         /// - Write: Bonded, Payee, [Origin Account], Locks, Ledger
         /// # </weight>
+        /// 带着来一边
         #[pallet::weight(T::WeightInfo::bond())]
         pub fn bond(
             origin: OriginFor<T>,
@@ -1187,6 +1198,8 @@ pub mod pallet {
         /// - Read: Era Election Status, Bonded, Ledger, [Origin Account], Locks
         /// - Write: [Origin Account], Locks, Ledger
         /// # </weight>
+        /// 将非账户钱存到质押
+        /// 这个函数什么时候调用
         #[pallet::weight(T::WeightInfo::bond_extra())]
         pub fn bond_extra(
             origin: OriginFor<T>,
@@ -1318,6 +1331,7 @@ pub mod pallet {
         /// NOTE: Weight annotation is the kill scenario, we refund otherwise.
         /// # </weight>
         #[pallet::weight(T::WeightInfo::withdraw_unbonded_kill(*num_slashing_spans))]
+        // 提现余额到账户中- Rebond = withdraw+ bond_extra
         pub fn withdraw_unbonded(
             origin: OriginFor<T>,
             num_slashing_spans: u32,
@@ -1379,6 +1393,7 @@ pub mod pallet {
         /// - Read: Era Election Status, Ledger
         /// - Write: Validators
         /// # </weight>
+        /// 某一个候选人上位
         #[pallet::weight(T::WeightInfo::validate())]
         pub fn validate(origin: OriginFor<T>, prefs: ValidatorPrefs) -> DispatchResult {
             ensure!(
@@ -1410,6 +1425,7 @@ pub mod pallet {
         /// - Write: Validators
         /// # </weight>
         #[pallet::weight(T::WeightInfo::chill())]
+        // 带着看看
         pub fn chill(origin: OriginFor<T>) -> DispatchResult {
             ensure!(
                 Self::era_election_status().is_closed(),
@@ -1438,6 +1454,7 @@ pub mod pallet {
         ///     - Write: Payee
         /// # </weight>
         #[pallet::weight(T::WeightInfo::set_payee())]
+        // 设置收益
         pub fn set_payee(
             origin: OriginFor<T>,
             payee: RewardDestination<T::AccountId>,
@@ -1688,6 +1705,7 @@ pub mod pallet {
         /// - Read: Unapplied Slashes
         /// - Write: Unapplied Slashes
         /// # </weight>
+        /// 带着看一遍？(要罚钱数组插入一批植)
         #[pallet::weight(T::WeightInfo::cancel_deferred_slash(slash_indices.len() as u32))]
         pub fn cancel_deferred_slash(
             origin: OriginFor<T>,
@@ -1834,6 +1852,7 @@ pub mod pallet {
 
         /// delegate credit to a set of validators
         #[pallet::weight(T::WeightInfo::delegate(1))]
+        ///
         pub fn delegate(origin: OriginFor<T>, validators: Vec<T::AccountId>) -> DispatchResult {
             ensure!(
                 Self::era_election_status().is_closed(),
@@ -1922,6 +1941,7 @@ pub mod pallet {
         }
 
         #[pallet::weight(Weight::from_ref_time(10_000u64) + T::DbWeight::get().reads_writes(3,1))]
+        /// 带着看看
         pub fn difference_compensation(
             origin: OriginFor<T>,
             delegator: T::AccountId,
@@ -2044,6 +2064,7 @@ pub mod pallet {
         }
 
         #[pallet::weight(T::WeightInfo::npow_mint())]
+        //// 带看解释下
         pub fn npow_mint(
             origin: OriginFor<T>,
             target: T::AccountId,
@@ -2094,7 +2115,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(T::WeightInfo::npow_mint())]
+        #[pallet::weight(T::WeightInfo::validator_burn())]
         pub fn validator_burn(
             origin: OriginFor<T>,
             amount: BalanceOf<T>,
@@ -2342,6 +2363,7 @@ impl<T: Config> pallet::Pallet<T> {
         Self::do_delegate(delegator, vec![validators[idx].clone()])
     }
 
+    /// 带着看看
     pub fn do_delegate(delegator: T::AccountId, validators: Vec<T::AccountId>) -> DispatchResult {
         let enough_credit = T::CreditInterface::pass_threshold(&delegator);
         ensure!(enough_credit, Error::<T>::CreditTooLow);
@@ -2624,6 +2646,7 @@ impl<T: Config> pallet::Pallet<T> {
     }
 
     /// Pay delegators based on their credit
+    /// 带看
     fn pay_delegators() -> Weight {
         let current_block = <frame_system::Pallet<T>>::block_number();
         let mut remainder_mining_reward = T::NumberToCurrency::convert(
